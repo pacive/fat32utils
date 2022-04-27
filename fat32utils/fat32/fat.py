@@ -1,5 +1,5 @@
-from fat32 import LE
-from fat32.location import Fat32Location as Location
+from .location import Fat32Location
+import fat32
 
 class Fat32FAT:
   EOC = 0x0fffffff
@@ -11,17 +11,17 @@ class Fat32FAT:
     self.start_sector = fs.bpb.fat_sector()[fat_no]
   
   def read_cluster(self, n, cache = True):
-    location = Location.of_fat_cluster(self.fs.bpb, self.fat_no, n)
+    location = Fat32Location.of_fat_cluster(self.fs.bpb, self.fat_no, n)
     sector_data = self.fs.read_sector(location.sector, cache)
-    return int.from_bytes(sector_data[location.byte:location.byte + 4], LE)
+    return int.from_bytes(sector_data[location.byte:location.byte + 4], fat32.LE)
 
   def first_free_cluster(self, start_cluster = 0, cache = False):
-    location = Location.of_fat_cluster(self.fs.bpb, self.fat_no, start_cluster)
+    location = Fat32Location.of_fat_cluster(self.fs.bpb, self.fat_no, start_cluster)
     byte_offset = location.byte
     for s in range(location.sector, self.start_sector + self.fs.bpb.sectors_per_fat()):
       sector = self.fs.read_sector(s, cache)
       for c in range(byte_offset, self.fs.bpb.bytes_per_sector(), 4):
-        cluster = int.from_bytes(sector[c:c + 4], LE)
+        cluster = int.from_bytes(sector[c:c + 4], fat32.LE)
         if cluster == 0:
           return c // 4
       byte_offset = 0
@@ -37,9 +37,9 @@ class Fat32FAT:
     return clusters
 
   def set_cluster(self, cluster, value):
-    location = Location.of_fat_cluster(self.fs.bpb, self.fat_no, cluster)
+    location = Fat32Location.of_fat_cluster(self.fs.bpb, self.fat_no, cluster)
     sector = self.fs.read_sector(location.sector, True)
-    sector[location.byte:location.byte + 4] = value.to_bytes(4, LE)
+    sector[location.byte:location.byte + 4] = value.to_bytes(4, fat32.LE)
 
   def allocate(self, n = 1, cluster_offset = 0):
     start_cluster = self.first_free_cluster(cluster_offset, True)
@@ -54,10 +54,16 @@ class Fat32FAT:
         clusters.append(self.first_free_cluster(cluster_index, True))
       alloc += 1
     i = 0
-    print(clusters)
     while i < len(clusters) - 1:
-      print(i)
       self.set_cluster(clusters[i], clusters[i + 1])
       i += 1
     self.set_cluster(clusters[i], self.EOC)
-    return self.fs.flush_cache()
+    self.fs.flush_cache()
+    return start_cluster
+
+  def free(self, start_cluster):
+    i = start_cluster
+    while (cluster := self.read_cluster(i)) < self.EOC_MIN:
+      self.set_cluster(i, 0)
+      i = cluster
+    self.fs.flush_cache()

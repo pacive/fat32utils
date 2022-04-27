@@ -1,11 +1,13 @@
-from fat32.cluster import Fat32Cluster as Cluster
-from fat32.location import Fat32Location as Location
+from .cluster import Fat32Cluster
+from .location import Fat32Location
+from fat32.utils import chunk_data
 
 class Fat32File:
-  def __init__(self, fs, meta):
+  def __init__(self, fs, meta, lfn = None):
     self.fs = fs
     self.meta = meta
-    self.clusters = [Cluster(self.fs, c) for c in fs.fats[0].get_file_clusters(meta)]
+    self.lfn = lfn
+    self.clusters = [Fat32Cluster(self.fs, c) for c in fs.fat.get_file_clusters(meta)]
     self.pos = 0
 
   def seek(self, pos):
@@ -31,28 +33,40 @@ class Fat32File:
     return data
   
   def cursor_location(self):
-    return Location(self.fs.bpb, self.pos // self.fs.bpb.bytes_per_sector(), self.pos % self.fs.bpb.bytes_per_sector())
+    return Fat32Location(self.fs.bpb, self.pos // self.fs.bpb.bytes_per_sector(), self.pos % self.fs.bpb.bytes_per_sector())
 
   def write(self, data):
     cluster_size = self.fs.bpb.bytes_per_sector() * self.fs.bpb.sectors_per_cluster()
     start_cluster_index = self.pos // cluster_size
     offset = self.pos % cluster_size
     length = len(data)
-    total_length = (offset + length)
-    total_length += total_length + (cluster_size - total_length % cluster_size)
-    num_clusters = (total_length // cluster_size)
+    space_required = self.pos + length
+    clusters_required = space_required // cluster_size + 1
 
+    if clusters_required > len(self.clusters):
+      self.extend(clusters_required - len(self.clusters))
+
+    chunk_offsets = chunk_data(length, cluster_size, offset)
     total_bytes_written = 0
-    if num_clusters == 1:
-      total_bytes_written = self.clusters[start_cluster_index].write(data, offset)
-    else:
-      total_bytes_written = self.clusters[start_cluster_index].write(data[:cluster_size - offset], offset)
-      i = 1
-      while i < num_clusters:
-        total_bytes_written += self.clusters[i].write(data[cluster_size * i - offset:cluster_size * (i + 1) - offset])
-        i += 1
-      total_bytes_written += self.clusters[i].write(data[cluster_size * i - offset:])
+
+    for i, offsets in enumerate(chunk_offsets):
+      start = offset if i == 0 else 0
+      total_bytes_written = self.clusters[start_cluster_index + i].write(data[offsets[0]:offsets[1]], start)
+
+    if space_required > self.meta.size:
+      self.meta.size = space_required
+      self.write_metadata()
+
     return total_bytes_written
 
+  def write_metadata(self):
+    sector = self.fs.read_sector(self.meta.location.sector)
+    sector[self.meta.location.byte:self.meta.location.byte + 32] = self.meta.encode()
+    return self.fs.flush_cache()
     
-    
+  def extend(self, clusters):
+    alloc_clusters = self.fs.fat.get_file_clusters(self.meta)
+    first_alloc_cluster = self.fs.fat.allocate(clusters, alloc_clusters[-2])
+    self.fs.fat.set_cluster(alloc_clusters[-2], first_alloc_cluster)
+    self.fs.flush_cache()
+    return first_alloc_cluster

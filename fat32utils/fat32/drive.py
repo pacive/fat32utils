@@ -1,15 +1,16 @@
-from fat32.bpb import Fat32BPB as BPB
-from fat32.directory import Fat32Dir as Directory
-from fat32.file import Fat32File as File
-from fat32.metadata import Fat32Metadata as Metadata
-from fat32.fat import Fat32FAT as FAT
-from fat32.location import Fat32Location as Location
+from .bpb import Fat32BPB as BPB
+from .directory import Fat32Dir as Directory
+from .file import Fat32File as File
+from .metadata import Fat32Metadata as Metadata
+from .fat import Fat32FAT as FAT
+from .location import Fat32Location as Location
 
 class Fat32Drive:
   def __init__(self, io_obj):
     self.fs = io_obj
     self.bpb = BPB(self.fs.read(512))
     self.fats = [FAT(self, i) for i in range(self.bpb.number_of_fats())]
+    self.fat = self.fats[0]
     self.cache = {}
 
   def root_dir(self):

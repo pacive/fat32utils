@@ -1,24 +1,27 @@
 from datetime import datetime, time, date
-from fat32 import LE
+import fat32
 
 def to_dos_date(dt):
   y = (dt.year - 1980) << 9
   m = dt.month << 5
   d = dt.day
-  return (y + m + d).to_bytes(2, LE)
+  return (y + m + d).to_bytes(2, fat32.LE)
 
 def to_dos_time(dt):
   h = dt.hour << 11
   m = dt.minute << 5
   s = dt.second // 2
-  return (h + m + s).to_bytes(2, LE)
+  return (h + m + s).to_bytes(2, fat32.LE)
+
+def to_dos_time_ms(dt):
+  return (dt.second % 2) * 100 + (dt.microsecond // 10000)
 
 def to_dos_datetime(dt):
   return to_dos_time(dt) + to_dos_date(dt)
 
 def from_dos_date(v):
   if isinstance(v, bytes):
-    v = int.from_bytes(v, LE)
+    v = int.from_bytes(v, fat32.LE)
   y = (v >> 9) + 1980
   m = v >> 5 & 0xf
   d = v & 0xf
@@ -26,7 +29,7 @@ def from_dos_date(v):
 
 def from_dos_time(v):
   if isinstance(v, bytes):
-    v = int.from_bytes(v, LE)
+    v = int.from_bytes(v, fat32.LE)
   h = (v >> 11)
   m = (v >> 5) & 0x3f
   s = (v & 0xf) * 2
@@ -42,3 +45,21 @@ def from_dos_datetime(v):
     d = from_dos_date(v & 0xffff)
 
   return datetime.combine(d, t)
+
+def chunk_data(length, chunk_size, offset):
+  if length < chunk_size:
+    return [(0, length)]
+
+  chunk_number = length // chunk_size + int((length + offset) % chunk_size > 0)
+  chunks = []
+  chunks.append((0, chunk_size - offset))
+  i = 1
+  while i < chunk_number:
+    start = chunk_size * i - offset
+    i += 1
+    end = chunk_size * i - offset
+    chunks.append((start,end))
+
+  chunks.append((chunk_size * i - offset, length))
+  return chunks
+

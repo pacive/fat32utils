@@ -1,4 +1,5 @@
 from fat32.location import Fat32Location as Location
+from fat32.utils import chunk_data
 
 class Fat32Cluster:
   def __init__(self, fs, number):
@@ -23,22 +24,12 @@ class Fat32Cluster:
   def write(self, data, offset = 0):
     start_location = self.location.plus_bytes(offset)
     length = len(data)
-    total_length = (start_location.byte + length)
-    total_length += total_length + (self.fs.bpb.bytes_per_sector() - total_length % self.fs.bpb.bytes_per_sector())
-    num_sectors = total_length // self.fs.bpb.bytes_per_sector()
+    chunk_offsets = chunk_data(length, self.fs.bpb.bytes_per_sector(), start_location.byte)
 
-    if num_sectors == 1:
-      sector = self.fs.read_sector(start_location.sector)
-      sector[start_location.byte:start_location.byte + length] = data
-    else:
-      first_sector = self.fs.read_sector(start_location.sector)
-      first_sector[offset:] = data[:self.fs.bpb.bytes_per_sector() - offset]
-      i = 1
-      while i < num_sectors - 1:
-        sector = self.fs.read_sector(start_location.sector + i)
-        sector = data[self.fs.bpb.bytes_per_sector() * i - offset:self.fs.bpb.bytes_per_sector() * (i + 1) - offset]
-        i += 1
-      last_sector = self.fs.read_sector(start_location.sector + i)
-      last_sector[:len(data[self.fs.bpb.bytes_per_sector() * i - offset])] = data[self.fs.bpb.bytes_per_sector() * i - offset]
+    for i, offsets in enumerate(chunk_offsets):
+      start = offset if i == 0 else 0
+      end = offsets[1] - offsets[0]
+      sector = self.fs.read_sector(start_location.sector + i)
+      sector[start:end] = data[offsets[0]:offsets[1]]
     
     return self.fs.flush_cache()
