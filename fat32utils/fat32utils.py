@@ -35,15 +35,3 @@ with open('\\\\.\\' + path.drive, 'rb+') as drive:
       restore(file)
     else:
       print('Invalid command')
-
-    # print(f'{test_file.meta.location.sector} + {test_file.meta.location.byte}')
-    # print(test_file.meta.location.abs_byte())
-    # print(f'{dir.clusters[0].location.sector} + {dir.clusters[0].location.byte}')
-    # print(dir.clusters[0].location.abs_byte())
-    # print(fs.bpb.root_dir_cluster())
-    # root_dir_cluster = fat32.Location.of_cluster(fs.bpb, fs.bpb.root_dir_cluster())
-    # print(f'{root_dir_cluster.sector} + {root_dir_cluster.byte}')
-
-    # dir.seek(test_file.meta.location.abs_byte() - dir.clusters[0].location.abs_byte())
-    # dir.write(test_file.meta.encode())
-
