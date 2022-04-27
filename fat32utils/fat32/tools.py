@@ -29,7 +29,7 @@ def find(dir: fat32.Directory, file: str):
   for f in dir.get_files():
     if file in [f.lfn.filename(), f.meta.full_name()]:
       return f
-  raise FileNotFoundError
+  raise FileNotFoundError()
 
 def cd(dir: fat32.Directory, subdir: str):
   d = find(dir, subdir)

@@ -9,6 +9,7 @@ class Fat32Drive:
   def __init__(self, io_obj):
     self.fs = io_obj
     self.bpb = BPB(self.fs.read(512))
+    self.verify_fs()
     self.fats = [FAT(self, i) for i in range(self.bpb.number_of_fats())]
     self.fat = self.fats[0]
     self.cache = {}
@@ -56,3 +57,11 @@ class Fat32Drive:
   def write_sector(self, n, data):
     self.fs.seek(n * self.bpb.bytes_per_sector())
     return self.fs.write(data)
+
+  def verify_fs(self):
+    valid_fat = self.bpb.bytes_per_sector() in [512, 1024, 2048, 4096] and \
+                self.bpb.sectors_per_cluster() in [1, 2, 4, 8, 16, 32, 64, 128] and \
+                self.bpb.bytes_per_sector() * self.bpb.sectors_per_cluster() < 32 * 1024
+    if not valid_fat:
+      raise AssertionError()
+                
