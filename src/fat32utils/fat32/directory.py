@@ -5,10 +5,10 @@ from .metadata import Fat32Metadata
 from .vfat_lfn import Fat32VFatLfn, Fat32VFatLfnSegment
 
 class Fat32Dir(Fat32File):
-  def __init__(self, fs, meta: Fat32Metadata, lfn: Fat32VFatLfn = None):
-    super().__init__(fs, meta, lfn)
+  def __init__(self, fs, meta: Fat32Metadata):
+    super().__init__(fs, meta)
     self.entries = []
-    if self.meta.volume_label():
+    if self.meta.is_volume_label():
       cluster = self.fs.bpb.root_dir_cluster()
       self.clusters = [Fat32Cluster(fs, cluster)]
     else:
@@ -16,27 +16,25 @@ class Fat32Dir(Fat32File):
     location = Fat32Location.of_cluster(self.fs.bpb, cluster)
     data = self.fs.read_cluster(cluster)
     i = 0
+    lfn = Fat32VFatLfn()
     while entry := data[i:i+32]:
       if entry[0] == 0:
         break
-      if int(entry[0xb]) & 15 == 15:
-        self.entries.append(Fat32VFatLfnSegment(entry, location.with_byte(i)))
+      if int(entry[0xb]) & Fat32Metadata.VFAT_LFN == Fat32Metadata.VFAT_LFN:
+        lfn.add_segment(Fat32VFatLfnSegment(entry, location.with_byte(i)))
       else:
-        self.entries.append(Fat32Metadata(entry, location.with_byte(i)))
+        self.entries.append(Fat32Metadata(entry, location.with_byte(i), lfn))
+        lfn = Fat32VFatLfn()
       i += 32
 
   def get_files(self):
     files = []
-    lfn = Fat32VFatLfn()
     for entry in self.entries:
-      if isinstance(entry, Fat32VFatLfnSegment):
-        lfn.add_segment(entry)
-      elif isinstance(entry, Fat32Metadata):
-        if entry.directory():
-          files.append(Fat32Dir(self.fs, entry, lfn))
+      if isinstance(entry, Fat32Metadata):
+        if entry.is_directory():
+          files.append(Fat32Dir(self.fs, entry))
         else:
-          files.append(Fat32File(self.fs, entry, lfn))
-        lfn = Fat32VFatLfn()
+          files.append(Fat32File(self.fs, entry))
 
     return files
 

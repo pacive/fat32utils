@@ -25,9 +25,11 @@ def lock_volume(vol):
                                       None, None)
 
 
-def find(dir: Directory, file: str):
+def find(dir: Directory, file: str, include_deleted = False):
   for f in dir.get_files():
-    if file in [f.lfn.filename(), f.meta.full_name()]:
+    if not f.meta.is_deleted() and file in [f.meta.filename(), f.meta.full_name()]:
+      return f
+    if include_deleted and file[1:] in [f.meta.filename(), f.meta.full_name()[1:]]:
       return f
   raise FileNotFoundError()
 
@@ -35,32 +37,26 @@ def cd(dir: Directory, subdir: str):
   d = find(dir, subdir)
   return d if isinstance(d, Directory) else None
 
-def get_file(root: Directory, path: str):
-  parts = path.split('\\')
-  if ':' in parts[0]:
-    parts.pop(0)
+def get_file(root: Directory, path, include_deleted = False):
+  parts = path.parts[1:]
 
   current_dir = root
   for dir in parts[:-1]:
     current_dir = cd(current_dir, dir)
   
-  return find(current_dir, parts[-1])
+  return find(current_dir, parts[-1], include_deleted)
 
 
 def ls(dir, recurse = False, level = 0):
   prefix = "\t" * level
   for file in dir.get_files():
-    if not file.meta.deleted():
-      if file.lfn:
-        filename = file.lfn.filename()
-      else:
-        filename = file.meta.full_name()
+    if not file.meta.is_deleted():
       if isinstance(file, Directory):
-        print(f"{prefix}{filename} attrs: {file.meta.attributes}")
+        print(f"{prefix}{file.meta.filename()} attrs: {file.meta.attributes}")
         if recurse and file.meta.short_name[0] != 46:
           ls(file, True, level + 1)
       else:
-        print(f"{prefix}{filename} attrs: {file.meta.attributes} size: {file.meta.size}")
+        print(f"{prefix}{file.meta.filename()} attrs: {file.meta.attributes} size: {file.meta.size}")
 
 # def mkfile(dir, name, **kwargs):
 #   dt = datetime.now()
@@ -71,14 +67,18 @@ def ls(dir, recurse = False, level = 0):
 
 #   clusters = opts['size'] // (dir.fs.bpb.bytes_per_sector() * dir.fs.bpb.sectors_per_cluster())
 
-def hide(file: File):
+def repoint(file: File, to_cluster: int = 0, set_size: int = 0):
   orig_cluster = file.meta.start_cluster
   orig_size = file.meta.size
-  cluster = Cluster(file.fs, file.fs.fat.allocate())
-  cluster.write(MAGIC_MARK.to_bytes(2, LE) + orig_cluster.to_bytes(4, LE) + orig_size.to_bytes(4, LE))
-  file.meta.start_cluster = cluster.number
-  file.meta.size = 10
+  file.meta.start_cluster = to_cluster
+  file.meta.size = set_size
   file.write_metadata()
+  return orig_cluster, orig_size
+
+def hide(file: File):
+  cluster = Cluster(file.fs, file.fs.fat.allocate())
+  orig_cluster, orig_size = repoint(file, cluster.number, 10)
+  cluster.write(MAGIC_MARK.to_bytes(2, LE) + orig_cluster.to_bytes(4, LE) + orig_size.to_bytes(4, LE))
   file.fs.flush_cache()
 
 def restore(file: File):
@@ -88,9 +88,16 @@ def restore(file: File):
   orig_cluster = int.from_bytes(data[2:6], LE)
   orig_size = int.from_bytes(data[6:10], LE)
   file.write(b"\x00" * 10)
-  file.meta.start_cluster = orig_cluster
-  file.meta.size = orig_size
-  file.write_metadata()
+  repoint(file, orig_cluster, orig_size)
   file.fs.fat.free(file.clusters[0].number)
   file.fs.flush_cache()
   return True
+
+def mark_deleted(file: File):
+  filename = file.meta.short_name
+  file.meta.short_name = b'\xe5' + filename[1:]
+  file.write_metadata()
+
+def unmark_deleted(file: File, orig_filename):
+  file.meta.short_name = bytes(orig_filename[0].upper(), 'ansi') + file.meta.short_name[1:]
+  file.write_metadata()

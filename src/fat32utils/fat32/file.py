@@ -3,10 +3,9 @@ from .location import Fat32Location
 from .utils import chunk_data
 
 class Fat32File:
-  def __init__(self, fs, meta, lfn = None):
+  def __init__(self, fs, meta):
     self.fs = fs
     self.meta = meta
-    self.lfn = lfn
     self.clusters = [Fat32Cluster(self.fs, c) for c in fs.fat.get_file_clusters(meta)]
     self.pos = 0
 

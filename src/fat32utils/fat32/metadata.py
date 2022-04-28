@@ -12,7 +12,7 @@ class Fat32Metadata:
 
   VFAT_LFN = ATTR_READONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUMELABEL
 
-  def __init__(self, data, location):
+  def __init__(self, data, location, lfn = None ):
     self.short_name = data[0x0:0x8]
     self.extension = data[0x8:0xb]
     self.attributes = int(data[0xb])
@@ -26,29 +26,30 @@ class Fat32Metadata:
     self.start_cluster = int.from_bytes(data[0x1a:0x1c] + data[0x14:0x16], LE)
     self.size = int.from_bytes(data[0x1c:0x20], LE)
     self.location = location
+    self.lfn = lfn
 
-  def readonly(self):
+  def is_readonly(self):
     return bool(self.attributes & self.ATTR_READONLY)
 
-  def hidden(self):
+  def is_hidden(self):
     return bool(self.attributes & self.ATTR_HIDDEN)
 
-  def system(self):
+  def is_system(self):
     return bool(self.attributes & self.ATTR_SYSTEM)
 
-  def volume_label(self):
+  def is_volume_label(self):
     return bool(self.attributes & self.ATTR_VOLUMELABEL)
 
-  def directory(self):
+  def is_directory(self):
     return bool(self.attributes & self.ATTR_DIR)
 
-  def archive(self):
+  def is_archive(self):
     return bool(self.attributes & self.ATTR_ARCHIVE)
 
-  def vfat_lfn(self):
+  def is_vfat_lfn(self):
     return bool(self.attributes & self.VFAT_LFN)
 
-  def deleted(self):
+  def is_deleted(self):
     return self.short_name[0] == 0xe5
 
   def lowercase_name(self):
@@ -56,6 +57,12 @@ class Fat32Metadata:
 
   def lowercase_extension(self):
     return bool(self.case_info & self.LCASE_EXT)
+
+  def filename(self):
+    if not self.lfn.empty():
+      return self.lfn.filename()
+    else:
+      return self.full_name()
 
   def full_name(self):
     name = self.short_name.decode('ansi').strip()
