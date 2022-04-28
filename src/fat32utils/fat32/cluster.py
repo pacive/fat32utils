@@ -1,11 +1,11 @@
-from fat32.location import Fat32Location as Location
-from fat32.utils import chunk_data
+from .location import Fat32Location
+from .utils import chunk_data
 
 class Fat32Cluster:
   def __init__(self, fs, number):
     self.fs = fs
     self.number = number
-    self.location = Location.of_cluster(fs.bpb, number)
+    self.location = Fat32Location.of_cluster(fs.bpb, number)
 
   def read(self, offset = 0, length = None):
     sector_offset = offset // self.fs.bpb.bytes_per_sector()

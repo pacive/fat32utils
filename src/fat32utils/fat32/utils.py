@@ -1,17 +1,17 @@
 from datetime import datetime, time, date
-import fat32
+from .constants import LE
 
 def to_dos_date(dt):
   y = (dt.year - 1980) << 9
   m = dt.month << 5
   d = dt.day
-  return (y + m + d).to_bytes(2, fat32.LE)
+  return (y + m + d).to_bytes(2, LE)
 
 def to_dos_time(dt):
   h = dt.hour << 11
   m = dt.minute << 5
   s = dt.second // 2
-  return (h + m + s).to_bytes(2, fat32.LE)
+  return (h + m + s).to_bytes(2, LE)
 
 def to_dos_time_ms(dt):
   return (dt.second % 2) * 100 + (dt.microsecond // 10000)
@@ -21,7 +21,7 @@ def to_dos_datetime(dt):
 
 def from_dos_date(v):
   if isinstance(v, bytes):
-    v = int.from_bytes(v, fat32.LE)
+    v = int.from_bytes(v, LE)
   y = (v >> 9) + 1980
   m = v >> 5 & 0xf
   d = v & 0xf
@@ -29,7 +29,7 @@ def from_dos_date(v):
 
 def from_dos_time(v):
   if isinstance(v, bytes):
-    v = int.from_bytes(v, fat32.LE)
+    v = int.from_bytes(v, LE)
   h = (v >> 11)
   m = (v >> 5) & 0x3f
   s = (v & 0xf) * 2

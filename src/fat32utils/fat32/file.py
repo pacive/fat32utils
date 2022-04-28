@@ -1,6 +1,6 @@
 from .cluster import Fat32Cluster
 from .location import Fat32Location
-from fat32.utils import chunk_data
+from .utils import chunk_data
 
 class Fat32File:
   def __init__(self, fs, meta, lfn = None):

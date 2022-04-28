@@ -1,28 +1,28 @@
-from .bpb import Fat32BPB as BPB
-from .directory import Fat32Dir as Directory
-from .file import Fat32File as File
-from .metadata import Fat32Metadata as Metadata
-from .fat import Fat32FAT as FAT
-from .location import Fat32Location as Location
+from .bpb import Fat32BPB
+from .directory import Fat32Dir
+from .file import Fat32File
+from .metadata import Fat32Metadata
+from .fat import Fat32FAT
+from .location import Fat32Location
 
 class Fat32Drive:
   def __init__(self, io_obj):
     self.fs = io_obj
-    self.bpb = BPB(self.fs.read(512))
+    self.bpb = Fat32BPB(self.fs.read(512))
     self.verify_fs()
-    self.fats = [FAT(self, i) for i in range(self.bpb.number_of_fats())]
+    self.fats = [Fat32FAT(self, i) for i in range(self.bpb.number_of_fats())]
     self.fat = self.fats[0]
     self.cache = {}
 
   def root_dir(self):
-    location = Location.of_cluster(self.bpb, self.bpb.root_dir_cluster())
-    return Directory(self, Metadata(self.read_sector(location.sector)[:32], location))
+    location = Fat32Location.of_cluster(self.bpb, self.bpb.root_dir_cluster())
+    return Fat32Dir(self, Fat32Metadata(self.read_sector(location.sector)[:32], location))
 
   def get_file(self, meta):
-    return File(self, meta)
+    return Fat32File(self, meta)
 
   def read_cluster(self, n):
-    location = Location.of_cluster(self.bpb, n)
+    location = Fat32Location.of_cluster(self.bpb, n)
     self.fs.seek(location.abs_byte())
     return self.fs.read(self.bpb.bytes_per_sector() * self.bpb.sectors_per_cluster())
 

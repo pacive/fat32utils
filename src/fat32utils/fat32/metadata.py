@@ -1,4 +1,4 @@
-import fat32
+from .constants import LE
 
 class Fat32Metadata:
   ATTR_READONLY = 0x1
@@ -23,8 +23,8 @@ class Fat32Metadata:
     self.adate = data[0x12:0x14]
     self.mtime = data[0x16:0x18]
     self.mdate = data[0x18:0x1a]
-    self.start_cluster = int.from_bytes(data[0x1a:0x1c] + data[0x14:0x16], fat32.LE)
-    self.size = int.from_bytes(data[0x1c:0x20], fat32.LE)
+    self.start_cluster = int.from_bytes(data[0x1a:0x1c] + data[0x14:0x16], LE)
+    self.size = int.from_bytes(data[0x1c:0x20], LE)
     self.location = location
 
   def readonly(self):
@@ -65,10 +65,10 @@ class Fat32Metadata:
     return f'{name}.{ext}' if len(ext) > 0 else name
 
   def encode(self):
-    cluster = self.start_cluster.to_bytes(4, fat32.LE)
-    data = self.short_name + self.extension + self.attributes.to_bytes(1, fat32.LE) + self.case_info.to_bytes(1, fat32.LE) + \
-           self.ctime_ms.to_bytes(1, fat32.LE) + self.ctime + self.cdate + self.adate + cluster[2:] + \
-           self.mtime + self.mdate + cluster[:2] + self.size.to_bytes(4, fat32.LE)
+    cluster = self.start_cluster.to_bytes(4, LE)
+    data = self.short_name + self.extension + self.attributes.to_bytes(1, LE) + self.case_info.to_bytes(1, LE) + \
+           self.ctime_ms.to_bytes(1, LE) + self.ctime + self.cdate + self.adate + cluster[2:] + \
+           self.mtime + self.mdate + cluster[:2] + self.size.to_bytes(4, LE)
     return data
 
   def filename_checksum(self):

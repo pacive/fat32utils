@@ -1,8 +1,8 @@
 import os
 import sys
-import fat32
+from . import fat32
 from pathlib import Path
-from fat32.tools import *
+from .fat32.tools import *
 
 command = sys.argv[1]
 path = Path(os.path.abspath(sys.argv[-1]))
@@ -18,6 +18,7 @@ with open('\\\\.\\' + path.drive, 'rb+') as drive:
     root = fs.root_dir()
     file = get_file(root, str(path))
     if command == 'hide':
+      print(f'Hiding: {path}')
       hide(file)
     elif command == 'restore':
       restore(file)
