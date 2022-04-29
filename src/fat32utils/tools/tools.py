@@ -1,14 +1,37 @@
 #from datetime import datetime
+import sys
 import msvcrt
 import win32file
 import winioctlcon
 import contextlib
 
-from . import Cluster, Directory, File
-from .constants import LE
-from .utils import to_dos_date, to_dos_time, to_dos_time_ms
+from fat32utils.fat32 import Cluster, Directory, Drive, File
+from fat32utils.fat32.constants import LE
+from fat32utils.fat32.utils import to_dos_date, to_dos_time, to_dos_time_ms
 
 MAGIC_MARK = 0x84b5
+
+@contextlib.contextmanager
+def open_drive(path):
+  with open('\\\\.\\' + path.drive, 'rb+') as drive:
+    hVol = msvcrt.get_osfhandle(drive.fileno())
+    win32file.DeviceIoControl(hVol, winioctlcon.FSCTL_LOCK_VOLUME,
+                              None, None)
+    try:
+      fs = Drive(drive)
+      yield fs
+    except AssertionError:
+      print('Not a FAT32 file system')
+      sys.exit(1)
+    except:
+      print('Unable to open drive')
+      sys.exit(1)
+    finally:
+      try: 
+        drive.flush()
+      finally:
+        win32file.DeviceIoControl(hVol, winioctlcon.FSCTL_UNLOCK_VOLUME,
+                                      None, None)
 
 @contextlib.contextmanager
 def lock_volume(vol):
