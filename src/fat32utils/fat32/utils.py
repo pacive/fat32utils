@@ -24,7 +24,7 @@ def from_dos_date(v):
     v = int.from_bytes(v, LE)
   y = (v >> 9) + 1980
   m = v >> 5 & 0xf
-  d = v & 0xf
+  d = v & 0x1f
   return date(y, m, d)
 
 def from_dos_time(v):
