@@ -1,4 +1,4 @@
-from datetime import datetime, time, date
+from datetime import datetime, time, date, timedelta
 from .constants import LE
 
 def to_dos_date(dt):
@@ -33,8 +33,10 @@ def from_dos_time(v):
   h = (v >> 11)
   m = (v >> 5) & 0x3f
   s = (v & 0xf) * 2
-  print(h, m, s)
   return time(h, m, s)
+
+def from_dos_time_ms(v):
+  return timedelta(seconds = (int(v) / 100))
 
 def from_dos_datetime(v):
   if isinstance(v, bytes):

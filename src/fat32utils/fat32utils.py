@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from .tools import *
 from .usage import print_usage
+from .fat32.utils import from_dos_date, from_dos_datetime, from_dos_time_ms
 
 def do_hide(root, path, *_):
   file = get_file(root, path)
@@ -35,12 +36,32 @@ def do_repoint(root, path, **options):
   print(f"{path} has been repointed to a different cluster. To revert, use the following command:")
   print(f"fat32utils repoint --to-cluster {orig_cluster} --size {orig_size} {path}")
 
+def show_info(root, path, *_):
+  file = get_file(root, path)
+  print(
+    f'Name:             {file.meta.filename()}\n',
+    f'DOS short name:   {file.meta.full_name()}\n',
+    f'Attributes:\n',
+    '  readonly\n' if file.meta.is_readonly() else '',
+    '  hidden\n' if file.meta.is_hidden() else '',
+    '  system\n' if file.meta.is_system() else '',
+    '  volume label\n' if file.meta.is_volume_label() else '',
+    '  directory\n' if file.meta.is_directory() else '',
+    '  archive\n' if file.meta.is_archive() else '',
+    f'Create time:      {(from_dos_datetime(file.meta.ctime + file.meta.cdate) + from_dos_time_ms(file.meta.ctime_ms)).isoformat()}\n',
+    f'Last access date: {from_dos_date(file.meta.adate).isoformat()}\n',
+    f'Modify time:      {from_dos_datetime(file.meta.mtime + file.meta.mdate).isoformat()}\n',
+    f'Clusters:    {str([cluster.number for cluster in file.clusters])}\n',
+    f'Size:        {file.meta.size}',
+    sep = ''
+  ) 
 
 COMMANDS = { 'hide': do_hide,
              'restore': do_restore,
              'repoint': do_repoint,
              'delete': do_delete,
-             'undelete': do_undelete }
+             'undelete': do_undelete,
+             'info': show_info }
 
 def parse_args(args: list[str]):
   command = args.pop(0) if len(args) else 'help'
