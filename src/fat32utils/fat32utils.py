@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from datetime import datetime
 from .tools import *
 from .usage import print_usage
 from .fat32.utils import from_dos_date, from_dos_datetime, from_dos_time_ms
@@ -39,29 +40,40 @@ def do_repoint(root, path, **options):
 def show_info(root, path, *_):
   file = get_file(root, path)
   print(
-    f'Name:             {file.meta.filename()}\n',
-    f'DOS short name:   {file.meta.full_name()}\n',
-    f'Attributes:\n',
+    f'Name:                {file.meta.filename()}\n',
+    f'DOS short name:      {file.meta.full_name()}\n',
+    'Attributes:\n',
     '  readonly\n' if file.meta.is_readonly() else '',
     '  hidden\n' if file.meta.is_hidden() else '',
     '  system\n' if file.meta.is_system() else '',
     '  volume label\n' if file.meta.is_volume_label() else '',
     '  directory\n' if file.meta.is_directory() else '',
     '  archive\n' if file.meta.is_archive() else '',
-    f'Create time:      {(from_dos_datetime(file.meta.ctime + file.meta.cdate) + from_dos_time_ms(file.meta.ctime_ms)).isoformat()}\n',
-    f'Last access date: {from_dos_date(file.meta.adate).isoformat()}\n',
-    f'Modify time:      {from_dos_datetime(file.meta.mtime + file.meta.mdate).isoformat()}\n',
-    f'Clusters:    {str([cluster.number for cluster in file.clusters])}\n',
-    f'Size:        {file.meta.size}',
+    f'Create time:         {(from_dos_datetime(file.meta.ctime + file.meta.cdate) + from_dos_time_ms(file.meta.ctime_ms)).isoformat()}\n',
+    f'Last access date:    {from_dos_date(file.meta.adate).isoformat()}\n',
+    f'Modify time:         {from_dos_datetime(file.meta.mtime + file.meta.mdate).isoformat()}\n',
+    f'Clusters:            {str([cluster.number for cluster in file.clusters])}\n',
+    f'Size:                {file.meta.size}\n',
+    f'File entry location: {file.meta.location.sector} + {file.meta.location.byte}',
     sep = ''
-  ) 
+  )
+
+def do_set_time(root, path, **options):
+  file = get_file(root, path)
+  datetimes = {}
+  for key, time_str in options.items():
+    datetimes[key] = datetime.fromisoformat(time_str)
+
+  set_time(file, **datetimes)
+
 
 COMMANDS = { 'hide': do_hide,
              'restore': do_restore,
              'repoint': do_repoint,
              'delete': do_delete,
              'undelete': do_undelete,
-             'info': show_info }
+             'info': show_info,
+             'settime': do_set_time }
 
 def parse_args(args: list[str]):
   command = args.pop(0) if len(args) else 'help'

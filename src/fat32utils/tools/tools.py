@@ -1,4 +1,3 @@
-#from datetime import datetime
 import sys
 import msvcrt
 import win32file
@@ -112,4 +111,19 @@ def mark_deleted(file: File) -> None:
 
 def unmark_deleted(file: File, orig_filename) -> None:
   file.meta.short_name = bytes(orig_filename[0].upper(), 'ansi') + file.meta.short_name[1:]
+  file.write_metadata()
+
+def set_time(file: File, ctime = None, atime = None, mtime = None):
+  if ctime is not None:
+    file.meta.ctime_ms = to_dos_time_ms(ctime)
+    file.meta.ctime = to_dos_time(ctime)
+    file.meta.cdate = to_dos_date(ctime)
+  
+  if atime is not None:
+    file.meta.adate = to_dos_date(atime)
+
+  if mtime is not None:
+    file.meta.mtime = to_dos_time(mtime)
+    file.meta.mdate = to_dos_date(mtime)
+
   file.write_metadata()
