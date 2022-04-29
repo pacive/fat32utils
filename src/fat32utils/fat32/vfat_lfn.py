@@ -26,4 +26,4 @@ class Fat32VFatLfnSegment:
     self.location = location
 
   def get_text(self):
-    return self.text.rstrip(b'\xff').decode('utf-16le')
+    return self.text.rstrip(b'\xff').decode('utf-16le').rstrip('\x00')
