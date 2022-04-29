@@ -21,9 +21,9 @@ class Fat32Dir(Fat32File):
       if entry[0] == 0:
         break
       if int(entry[0xb]) & Fat32Metadata.VFAT_LFN == Fat32Metadata.VFAT_LFN:
-        lfn.add_segment(Fat32VFatLfnSegment(entry, location.with_byte(i)))
+        lfn.add_segment(Fat32VFatLfnSegment(entry, location.plus_bytes(i)))
       else:
-        self.entries.append(Fat32Metadata(entry, location.with_byte(i), lfn))
+        self.entries.append(Fat32Metadata(entry, location.plus_bytes(i), lfn))
         lfn = Fat32VFatLfn()
       i += 32
 
