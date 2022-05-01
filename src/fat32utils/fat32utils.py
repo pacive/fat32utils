@@ -39,24 +39,7 @@ def do_repoint(root, path, **options):
 
 def show_info(root, path, *_):
   file = get_file(root, path)
-  print(
-    f'Name:                {file.meta.filename()}\n',
-    f'DOS short name:      {file.meta.full_name()}\n',
-    'Attributes:\n',
-    '  readonly\n' if file.meta.is_readonly() else '',
-    '  hidden\n' if file.meta.is_hidden() else '',
-    '  system\n' if file.meta.is_system() else '',
-    '  volume label\n' if file.meta.is_volume_label() else '',
-    '  directory\n' if file.meta.is_directory() else '',
-    '  archive\n' if file.meta.is_archive() else '',
-    f'Create time:         {(from_dos_datetime(file.meta.ctime + file.meta.cdate) + from_dos_time_ms(file.meta.ctime_ms)).isoformat()}\n',
-    f'Last access date:    {from_dos_date(file.meta.adate).isoformat()}\n',
-    f'Modify time:         {from_dos_datetime(file.meta.mtime + file.meta.mdate).isoformat()}\n',
-    f'Clusters:            {str([cluster.number for cluster in file.clusters])}\n',
-    f'Size:                {file.meta.size}\n',
-    f'File entry location: {file.meta.location.sector} + {file.meta.location.byte}',
-    sep = ''
-  )
+  print(*pretty_print(file, short = False), sep='')
 
 def do_set_time(root, path, **options):
   file = get_file(root, path)
@@ -66,6 +49,15 @@ def do_set_time(root, path, **options):
 
   set_time(file, **datetimes)
 
+def do_ls(root, path, **options):
+  options = {'recurse': False, 'all': False} | options
+  file = get_file(root, path, options['all'])
+  rows = ls(file, **options)
+  prefix_width = 3
+  fn_width = max([prefix_width * t[0] + len(t[1][0]) for t in rows])
+  for level, row in rows:
+    prefix = prefix_width * level
+    print(f'{"":>{prefix}}{row[0]:<{fn_width-prefix}}  {row[1]}  {row[2]}')
 
 COMMANDS = { 'hide': do_hide,
              'restore': do_restore,
@@ -73,7 +65,8 @@ COMMANDS = { 'hide': do_hide,
              'delete': do_delete,
              'undelete': do_undelete,
              'info': show_info,
-             'settime': do_set_time }
+             'settime': do_set_time,
+             'ls': do_ls }
 
 def parse_args(args: list[str]):
   command = args.pop(0) if len(args) else 'help'
@@ -81,12 +74,12 @@ def parse_args(args: list[str]):
   if command not in COMMANDS:
     return ('help', None, { 'command': args[0] }) if len(args) else ('help', None, { 'command': None })
 
-  path = Path(os.path.abspath(args.pop())) if len(args) else None
+  path = Path(os.path.abspath(args.pop().removesuffix('"'))) if len(args) else None
 
   options = {}
   while len(args) > 0:
     key = args.pop(0).removeprefix('--')
-    if not args[0].startswith('--'):
+    if len(args) and not args[0].startswith('--'):
       options[key] = args.pop(0)
     else:
       options[key] = True

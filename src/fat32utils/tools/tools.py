@@ -6,7 +6,7 @@ import contextlib
 
 from fat32utils.fat32 import Cluster, Directory, Drive, File
 from fat32utils.fat32.constants import LE
-from fat32utils.fat32.utils import to_dos_date, to_dos_time, to_dos_time_ms
+from fat32utils.fat32.utils import to_dos_date, to_dos_time, to_dos_time_ms, from_dos_date, from_dos_datetime, from_dos_time_ms
 
 MAGIC_MARK = 0x84b5
 
@@ -51,23 +51,54 @@ def cd(dir: Directory, subdir: str) -> Directory:
 def get_file(root: Directory, path, include_deleted = False) -> File:
   parts = path.parts[1:]
 
+  if len(parts) == 0:
+    return root
+
   current_dir = root
   for dir in parts[:-1]:
     current_dir = cd(current_dir, dir)
   
   return find(current_dir, parts[-1], include_deleted)
 
+def pretty_print(file: File, short = True):
+  if short:
+    return (file.meta.filename(), print_attrs(file.meta), file.meta.size)
+  else:
+    return (f'Name:                {file.meta.filename()}\n',
+            f'DOS short name:      {file.meta.full_name()}\n',
+            'Attributes:\n',
+            print_attrs(file.meta, False),
+            f'Create time:         {(from_dos_datetime(file.meta.ctime + file.meta.cdate) + from_dos_time_ms(file.meta.ctime_ms)).isoformat()}\n',
+            f'Last access date:    {from_dos_date(file.meta.adate).isoformat()}\n',
+            f'Modify time:         {from_dos_datetime(file.meta.mtime + file.meta.mdate).isoformat()}\n',
+            f'Clusters:            {str([cluster.number for cluster in file.clusters])}\n',
+            f'Size:                {file.meta.size}\n',
+            f'File entry location: {file.meta.location.sector} + {file.meta.location.byte}')
 
-def ls(dir, recurse = False, level = 0) -> None:
-  prefix = "\t" * level
+def print_attrs(meta, short = True):
+  if short:
+    return (f"--{'a' if meta.is_archive() else '-'}"
+            f"{'d' if meta.is_directory() else '-'}"
+            f"{'v' if meta.is_volume_label() else '-'}"
+            f"{'s' if meta.is_system() else '-'}"
+            f"{'h' if meta.is_hidden() else '-'}"
+            f"{'r' if meta.is_readonly() else '-'}")
+  else:
+    return ''.join(('  readonly\n' if meta.is_readonly() else '',
+                    '  hidden\n' if meta.is_hidden() else '',
+                    '  system\n' if meta.is_system() else '',
+                    '  volume label\n' if meta.is_volume_label() else '',
+                    '  directory\n' if meta.is_directory() else '',
+                    '  archive\n' if meta.is_archive() else ''))
+
+def ls(dir, recurse = False, all = False, level = 0) -> None:
+  rows = []
   for file in dir.get_files():
-    if not file.meta.is_deleted():
-      if isinstance(file, Directory):
-        print(f"{prefix}{file.meta.filename()} attrs: {file.meta.attributes}")
-        if recurse and file.meta.short_name[0] != 46:
-          ls(file, True, level + 1)
-      else:
-        print(f"{prefix}{file.meta.filename()} attrs: {file.meta.attributes} size: {file.meta.size}")
+    if all or not file.meta.is_deleted():
+      rows.append((level, pretty_print(file)))
+      if isinstance(file, Directory) and recurse and not file.meta.short_name.strip() in [b'.', b'..']:
+        rows += ls(file, recurse, all, level + 1)
+  return rows
 
 # def mkfile(dir, name, **kwargs):
 #   dt = datetime.now()
