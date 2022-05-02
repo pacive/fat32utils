@@ -96,10 +96,13 @@ def main():
     print('No file specified')
     print_usage(command = command)
     exit(1)
-
-  with open_drive(path) as fs:
-    root = fs.root_dir()
-    COMMANDS[command](root, path, **options)
+  try:
+    with open_drive(path) as fs:
+      root = fs.root_dir()
+      COMMANDS[command](root, path, **options)
+  except OSError as ex:
+    path = ex.filename.removeprefix('\\\\.\\') if ex.filename else None
+    print(f'{ex.strerror}{": " if path else ""}{path}')
 
 if __name__ == '__main__':
   main()

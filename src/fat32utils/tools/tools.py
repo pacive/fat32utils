@@ -1,4 +1,5 @@
-import sys
+import errno
+import os
 import msvcrt
 import win32file
 import winioctlcon
@@ -13,24 +14,19 @@ MAGIC_MARK = 0x84b5
 @contextlib.contextmanager
 def open_drive(path):
   with open('\\\\.\\' + path.drive, 'rb+') as drive:
-    hVol = msvcrt.get_osfhandle(drive.fileno())
-    win32file.DeviceIoControl(hVol, winioctlcon.FSCTL_LOCK_VOLUME,
-                              None, None)
+    handle = msvcrt.get_osfhandle(drive.fileno())
     try:
-      fs = Drive(drive)
-      yield fs
-    except AssertionError:
-      print('Not a FAT32 file system')
-      sys.exit(1)
-    # except:
-    #   print('Unable to open drive')
-    #   sys.exit(1)
-    finally:
-      try: 
-        drive.flush()
+      win32file.DeviceIoControl(handle, winioctlcon.FSCTL_LOCK_VOLUME, None, None)
+      try:
+        fs = Drive(drive)
+      except ValueError as ve:
+        print(ve)
+      else:
+        yield fs
       finally:
-        win32file.DeviceIoControl(hVol, winioctlcon.FSCTL_UNLOCK_VOLUME,
-                                      None, None)
+        win32file.DeviceIoControl(handle, winioctlcon.FSCTL_UNLOCK_VOLUME, None, None)
+    except:
+      raise PermissionError(errno.EPERM, os.strerror(errno.EPERM), drive.name)
 
 def find(dir: Directory, file: str, include_deleted = False) -> File:
   for f in dir.get_files():
@@ -38,14 +34,14 @@ def find(dir: Directory, file: str, include_deleted = False) -> File:
       return f
     if include_deleted and file[1:] in [f.meta.filename()[1:], f.meta.full_name()[1:]]:
       return f
-  raise FileNotFoundError()
+  raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), file)
 
 def cd(dir: Directory, subdir: str) -> Directory:
   d = find(dir, subdir)
   if isinstance(d, Directory):
     return d
   
-  raise FileNotFoundError()
+  raise NotADirectoryError(errno.ENOTDIR, os.strerror(errno.ENOTDIR), subdir)
 
 
 def get_file(root: Directory, path, include_deleted = False) -> File:

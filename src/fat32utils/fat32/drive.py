@@ -66,5 +66,5 @@ class Fat32Drive:
                 self.bpb.sectors_per_cluster() in [1, 2, 4, 8, 16, 32, 64, 128] and \
                 self.bpb.bytes_per_sector() * self.bpb.sectors_per_cluster() < 32 * 1024
     if not valid_fat:
-      raise AssertionError()
+      raise ValueError('Boot sector does not contain a valid Fat32 BPB')
                 
