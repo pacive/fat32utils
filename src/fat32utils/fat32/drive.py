@@ -59,7 +59,10 @@ class Fat32Drive:
     return self.fs.write(data)
 
   def verify_fs(self):
-    valid_fat = self.bpb.bytes_per_sector() in [512, 1024, 2048, 4096] and \
+    valid_fat = self.bpb.signature_byte() in [0x28, 0x29] and \
+                self.bpb.filesystem_type().isascii() and \
+                self.bpb.filesystem_type().decode('ascii').strip() == 'FAT32' and \
+                self.bpb.bytes_per_sector() in [512, 1024, 2048, 4096] and \
                 self.bpb.sectors_per_cluster() in [1, 2, 4, 8, 16, 32, 64, 128] and \
                 self.bpb.bytes_per_sector() * self.bpb.sectors_per_cluster() < 32 * 1024
     if not valid_fat:
